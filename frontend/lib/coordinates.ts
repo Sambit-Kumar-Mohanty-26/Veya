@@ -1,30 +1,16 @@
-export type NormalizedBBox = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+import type { NormalizedBBox } from "./types";
 
-export type NormalizedRegion = {
-  page: number;
-  bbox: NormalizedBBox;
-  coordinateSpace: "normalized";
-  pageWidth?: number;
-  pageHeight?: number;
-};
+export type ViewportBox = { left: number; top: number; width: number; height: number };
 
-export type ViewportBox = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
-export function toViewportBox(region: NormalizedRegion, renderedWidth: number, renderedHeight: number): ViewportBox {
+/**
+ * Normalized coordinates are fractions of the page, so they survive any zoom,
+ * viewport, or render scale. Multiply by whatever the page actually rendered at.
+ */
+export function toViewportBox(bbox: NormalizedBBox, width: number, height: number): ViewportBox {
   return {
-    left: region.bbox.x * renderedWidth,
-    top: region.bbox.y * renderedHeight,
-    width: region.bbox.width * renderedWidth,
-    height: region.bbox.height * renderedHeight
+    left: bbox.x * width,
+    top: bbox.y * height,
+    width: bbox.width * width,
+    height: bbox.height * height
   };
 }

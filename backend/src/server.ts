@@ -1,63 +1,40 @@
 import cors from "cors";
-import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import express, { type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
+import { AiError, configuredModels, hasApiKey } from "./services/gemini.js";
+import { processAssessment } from "./services/processAssessment.js";
 
 dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 const allowedOrigin = process.env.ALLOWED_ORIGIN || "http://localhost:3000";
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+const ACCEPTED_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 20 * 1024 * 1024
-  },
+  limits: { fileSize: MAX_FILE_BYTES, files: 2 },
   fileFilter: (_req, file, callback) => {
-    const acceptedTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
-
-    if (!acceptedTypes.has(file.mimetype)) {
-      callback(new Error("Only PDF, PNG, JPG, and JPEG files are supported."));
+    if (!ACCEPTED_TYPES.has(file.mimetype)) {
+      callback(new Error("Only PDF, PNG, and JPG files are supported."));
       return;
     }
-
     callback(null, true);
   }
 });
 
-type UploadedFileSummary = {
-  originalName: string;
-  mimeType: string;
-  size: number;
-};
-
-type Region = {
-  page: number;
-  bbox: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  coordinateSpace: "normalized";
-  pageWidth: number;
-  pageHeight: number;
-};
-
-app.use(
-  cors({
-    origin: allowedOrigin.split(",").map((origin) => origin.trim()),
-    credentials: true
-  })
-);
+app.use(cors({ origin: allowedOrigin.split(",").map((origin) => origin.trim()), credentials: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "veya-backend",
+    aiConfigured: hasApiKey(),
+    models: configuredModels,
     timestamp: new Date().toISOString()
   });
 });
@@ -68,120 +45,53 @@ app.post(
     { name: "questionPaper", maxCount: 1 },
     { name: "answerSheet", maxCount: 1 }
   ]),
-  (req, res) => {
-    const files = req.files as
-      | {
-          questionPaper?: Express.Multer.File[];
-          answerSheet?: Express.Multer.File[];
-        }
-      | undefined;
-
+  async (req, res, next) => {
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
     const questionPaper = files?.questionPaper?.[0];
     const answerSheet = files?.answerSheet?.[0];
 
     if (!questionPaper || !answerSheet) {
       res.status(400).json({
-        error: {
-          code: "MISSING_FILES",
-          message: "Upload both a question paper and an answer sheet."
-        }
+        error: { code: "MISSING_FILES", message: "Upload both a question paper and an answer sheet." }
       });
       return;
     }
 
-    const sampleRegion: Region = {
-      page: 1,
-      bbox: {
-        x: 0.08,
-        y: 0.18,
-        width: 0.78,
-        height: 0.16
-      },
-      coordinateSpace: "normalized",
-      pageWidth: 2480,
-      pageHeight: 3508
-    };
-
-    const summarize = (file: Express.Multer.File): UploadedFileSummary => ({
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size
-    });
-
-    res.json({
-      requestId: randomUUID(),
-      phase: "preview_pipeline",
-      files: {
-        questionPaper: summarize(questionPaper),
-        answerSheet: summarize(answerSheet)
-      },
-      progress: [
-        { key: "upload", label: "Files received", status: "complete" },
-        { key: "question_extraction", label: "Question extraction pending", status: "pending" },
-        { key: "answer_extraction", label: "Answer extraction pending", status: "pending" },
-        { key: "mapping", label: "Answer mapping pending", status: "pending" }
-      ],
-      questions: [
-        {
-          id: "q_1",
-          number: "1",
-          text: "Sample extracted question placeholder",
-          rawText: "1. Sample extracted question placeholder",
-          normalizedText: "Sample extracted question placeholder",
-          page: 1,
-          bbox: {
-            x: 0.08,
-            y: 0.12,
-            width: 0.82,
-            height: 0.06
-          },
-          coordinateSpace: "normalized",
-          marks: null
-        }
-      ],
-      answers: [
-        {
-          id: "a_1",
-          detectedQuestionNumber: "1",
-          rawText: "Sample handwritten answer placeholder",
-          normalizedText: "Sample handwritten answer placeholder",
-          pages: [sampleRegion],
-          ocrConfidence: 0.91,
-          evidence: {
-            hasQuestionNumberMarker: true,
-            containsDiagram: false,
-            containsTable: false,
-            isCrossedOut: false
-          }
-        }
-      ],
-      mappings: [
-        {
-          questionId: "q_1",
-          questionNumber: "1",
-          questionText: "Sample extracted question placeholder",
-          status: "answered",
-          reviewStatus: "high_confidence",
-          answerId: "a_1",
-          answerText: "Sample handwritten answer placeholder",
-          answerRegions: [sampleRegion],
-          mappingConfidence: 0.94,
-          alternativeCandidates: []
-        }
-      ]
-    });
+    const startedAt = Date.now();
+    try {
+      const result = await processAssessment(questionPaper, answerSheet);
+      console.log(
+        `[process] ${result.requestId} ${result.summary.totalQuestions}q ` +
+          `${result.summary.answered}a ${Date.now() - startedAt}ms`
+      );
+      res.json(result);
+    } catch (error) {
+      console.error(`[process] failed after ${Date.now() - startedAt}ms:`, error);
+      next(error);
+    }
   }
 );
 
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  res.status(400).json({
-    error: {
-      code: "REQUEST_FAILED",
-      message: err.message
-    }
-  });
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? `Each file must be ${MAX_FILE_BYTES / 1024 / 1024}MB or smaller.`
+        : err.message;
+    res.status(400).json({ error: { code: err.code, message } });
+    return;
+  }
+
+  // An AI failure is the service's fault, not the teacher's — say so, and say why.
+  if (err instanceof AiError) {
+    res.status(502).json({ error: { code: "AI_FAILED", message: err.message } });
+    return;
+  }
+
+  const message = err instanceof Error ? err.message : "Something went wrong.";
+  res.status(400).json({ error: { code: "REQUEST_FAILED", message } });
 });
 
 app.listen(port, () => {
-  console.log(`API running on port ${port}`);
+  console.log(`API running on port ${port} (AI ${hasApiKey() ? "configured" : "NOT configured"})`);
 });
