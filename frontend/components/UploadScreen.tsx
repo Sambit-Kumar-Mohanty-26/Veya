@@ -29,9 +29,12 @@ export function UploadScreen({
 }: UploadScreenProps) {
   const ready = Boolean(questionPaper && answerSheet);
 
+  // `m-auto` on the inner block rather than `justify-center` on the scroller:
+  // on a short viewport, centring with justify-content clips the overflow at
+  // BOTH ends and the top of the heading becomes unreachable.
   return (
-    <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto rounded-panel bg-surface-panel px-4 py-8 sm:px-8">
-      <div className="flex w-full max-w-[764px] flex-col items-center">
+    <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center overflow-y-auto rounded-panel panel-gradient px-4 py-8 sm:px-8">
+      <div className="m-auto flex w-full max-w-[764px] flex-col items-center">
         {/* The design highlights the second half only on desktop; the mobile
             frame is plain black across two lines, with no tinted box. */}
         <h1 className="text-center text-[26px] font-bold leading-tight sm:text-[32px]">
@@ -48,7 +51,7 @@ export function UploadScreen({
 
         {/* The design wraps both dashed cards in one white rounded container,
             so the gap between them reads as part of the panel, not the page. */}
-        <div className="grid w-full max-w-[764px] gap-4 rounded-panel bg-surface p-3 shadow-card sm:grid-cols-2">
+        <div className="grid w-full max-w-[764px] gap-4 rounded-panel bg-surface-sunken p-3 shadow-card sm:grid-cols-2">
           <DropZone
             label="Question Paper"
             file={questionPaper}

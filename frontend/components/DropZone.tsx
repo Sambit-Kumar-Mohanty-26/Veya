@@ -42,10 +42,35 @@ export function DropZone({ label, file, pageCount, onChange, onReject }: DropZon
       }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
-      className={`relative flex min-h-[175px] items-center justify-center rounded-card border border-dashed p-4 transition ${
-        isDragging ? "border-brand bg-brand-soft/50" : "border-line-strong bg-surface"
+      className={`relative flex min-h-[175px] items-center justify-center rounded-card p-4 transition ${
+        isDragging ? "bg-brand-soft/50" : "bg-surface"
       }`}
     >
+      {/* CSS `border-style:dashed` ties dash length to border-width, so a
+          thin 1-1.5px line always renders tight 3px dashes — there's no CSS
+          knob for a longer dash on a thin stroke. An SVG stroke-dasharray
+          isn't tied to width, so it can match the design's longer dashes.
+          The colour class lives on the svg, not the card div, so it doesn't
+          cascade into the "Upload …" text as an inherited text colour. */}
+      <svg
+        className={`pointer-events-none absolute inset-0 h-full w-full ${
+          isDragging ? "text-brand" : "text-line-strong"
+        }`}
+        aria-hidden="true"
+      >
+        <rect
+          x="1"
+          y="1"
+          width="calc(100% - 2px)"
+          height="calc(100% - 2px)"
+          rx="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeDasharray="6 5"
+        />
+      </svg>
+
       {file ? (
         <div className="relative w-full max-w-[300px]">
           <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5 shadow-raised">

@@ -1,26 +1,42 @@
 "use client";
 
-import {
-  ChevronsRight,
-  ClipboardList,
-  FileText,
-  LayoutGrid,
-  type LucideIcon,
-  PanelLeft,
-  PieChart,
-  Presentation,
-  Settings
-} from "lucide-react";
+import { ChevronsRight, PanelLeft, Settings } from "lucide-react";
 import Image from "next/image";
-import { Logo, Sparkle } from "./Brand";
+import { Logo, SparkleDuo } from "./Brand";
 
-const NAV: Array<{ label: string; icon: LucideIcon }> = [
-  { label: "Home", icon: LayoutGrid },
-  { label: "My Classroom", icon: Presentation },
-  { label: "Assignments", icon: FileText },
-  { label: "Exams", icon: ClipboardList },
-  { label: "My Library", icon: PieChart }
+/**
+ * The design's nav icons are a solid set that lucide has no equivalent for —
+ * "My Classroom" is a teacher at a whiteboard, not a presentation easel. They
+ * are exported as alpha masks and painted with `currentColor`, so the active
+ * row still darkens the same way an inline SVG would.
+ */
+const NAV = [
+  { label: "Home", icon: "home" },
+  { label: "My Classroom", icon: "classroom" },
+  { label: "Assignments", icon: "assignments" },
+  { label: "Exams", icon: "exams" },
+  { label: "My Library", icon: "library" }
 ];
+
+function NavIcon({ name }: { name: string }) {
+  const url = `url(/nav/${name}.png)`;
+  return (
+    <span
+      aria-hidden="true"
+      className="h-[19px] w-[19px] shrink-0 bg-current"
+      style={{
+        maskImage: url,
+        WebkitMaskImage: url,
+        maskSize: "contain",
+        WebkitMaskSize: "contain",
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+        maskPosition: "center",
+        WebkitMaskPosition: "center"
+      }}
+    />
+  );
+}
 
 const ACTIVE = "Exams";
 
@@ -43,7 +59,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className={`flex items-center px-1 ${collapsed ? "justify-center" : "justify-between"}`}>
         <span className="flex items-center gap-2.5">
           <Logo size={collapsed ? 30 : 34} />
-          {!collapsed && <span className="text-[19px] font-bold tracking-tight">VedaAI</span>}
+          {!collapsed && <span className="text-[21px] font-extrabold tracking-tight">VedaAI</span>}
         </span>
         {!collapsed && (
           <button
@@ -59,17 +75,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <button
         type="button"
-        className={`mt-5 flex items-center justify-center gap-2 rounded-full bg-ink text-white ring-2 ring-brand transition hover:bg-ink-soft ${
-          collapsed ? "h-10 w-10 self-center" : "h-11 w-full px-4"
+        className={`mt-10 flex items-center justify-center gap-2.5 rounded-full bg-[linear-gradient(140deg,#454545_0%,#2C2C2C_65%,#343434_100%)] text-white ring-[3px] ring-[#E8734A] transition hover:brightness-110 ${
+          collapsed ? "h-[38px] w-[38px] self-center" : "h-11 w-full px-4"
         }`}
         aria-label={collapsed ? "AI Teachers Toolkit" : undefined}
       >
-        <Sparkle size={15} className="text-brand-ring" />
-        {!collapsed && <span className="text-[13.5px] font-medium">AI Teacher&apos;s Toolkit</span>}
+        <SparkleDuo size={20} className="text-white" />
+        {!collapsed && <span className="text-[14.5px] font-medium">AI Teacher&rsquo;s Toolkit</span>}
       </button>
 
-      <nav className={`mt-6 flex flex-col gap-1 ${collapsed ? "items-center" : ""}`} aria-label="Main">
-        {NAV.map(({ label, icon: Icon }) => {
+      <nav className={`mt-10 flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`} aria-label="Main">
+        {NAV.map(({ label, icon }) => {
           const isActive = label === ACTIVE;
           return (
             <a
@@ -79,14 +95,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               aria-label={collapsed ? label : undefined}
               title={collapsed ? label : undefined}
               className={`flex items-center rounded-[10px] transition ${
-                collapsed ? "h-10 w-10 justify-center" : "h-10 gap-3 px-3"
+                collapsed ? "h-11 w-11 justify-center" : "h-11 gap-3 px-3"
               } ${
                 isActive
                   ? "bg-surface-sunken font-medium text-ink"
                   : "text-ink-muted hover:bg-surface-sunken/60 hover:text-ink"
               }`}
             >
-              <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+              <NavIcon name={icon} />
               {!collapsed && <span className="text-[14px]">{label}</span>}
             </a>
           );

@@ -42,6 +42,19 @@ export function Sparkle({ className = "", size = 16 }: { className?: string; siz
 }
 
 /**
+ * The toolkit button uses a pair — a large sparkle with a small one tucked
+ * against its upper right, which is how the design draws it.
+ */
+export function SparkleDuo({ className = "", size = 18 }: { className?: string; size?: number }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} className={className} fill="currentColor" aria-hidden="true">
+      <path d={sparklePath(16, 25, 15)} />
+      <path d={sparklePath(31, 11, 8)} />
+    </svg>
+  );
+}
+
+/**
  * The loading-screen cluster: a large star with a smaller one overlapping its
  * lower-left arm, plus a faint star and dot. Drawn as one SVG so the overlap
  * stays exact at any size.
