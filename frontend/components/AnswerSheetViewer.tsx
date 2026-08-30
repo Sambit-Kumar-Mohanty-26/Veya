@@ -216,6 +216,14 @@ export function AnswerSheetViewer({ files, regions, tag, emptyMessage, active }:
         </div>
       </div>
 
+      {/* Outside the scroller: it describes the selected question, not the top
+          of the sheet, so it stays put until another question is picked. */}
+      {emptyMessage && (
+        <p className="shrink-0 bg-mark-none-bg px-4 py-3 text-center text-[13px] text-mark-none">
+          {emptyMessage}
+        </p>
+      )}
+
       {/* No scroll pill here: the design gives the sheet the page steppers in
           the header instead, and wheel/trackpad scrolling is untouched. */}
       <div ref={scrollRef} className="thin-scroll min-h-0 flex-1 overflow-auto bg-line">
@@ -227,10 +235,6 @@ export function AnswerSheetViewer({ files, regions, tag, emptyMessage, active }:
 
         {status === "loading" && pages.length === 0 && (
           <div className="h-[560px] w-full animate-pulse bg-line" />
-        )}
-
-        {emptyMessage && (
-          <p className="bg-mark-none-bg px-4 py-3 text-center text-[13px] text-mark-none">{emptyMessage}</p>
         )}
 
         {/* Pages sit flush against the panel edges, separated only by a seam. */}
