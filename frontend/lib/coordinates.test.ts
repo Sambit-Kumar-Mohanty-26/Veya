@@ -37,12 +37,20 @@ const page = [line(0.1, 0.14), line(0.15, 0.19), line(0.2, 0.24), line(0.3, 0.34
 }
 
 // The box starts below this answer's own opening line — the one carrying the
-// number marker, so it hangs into the margin. That line is claimed back.
-{
+// number marker, so it hangs into the margin. That line is claimed back,
+// whether the box clips it or misses it entirely.
+for (const top of [0.135, 0.15]) {
   const marked = [{ ...page[0], left: 0.04 }, ...page.slice(1)];
-  const box = snapToInk({ x: 0.1, y: 0.135, width: 0.7, height: 0.1 }, marked);
-  assert.equal(round(box.y), round(0.1 - MARGIN));
+  const box = snapToInk({ x: 0.1, y: top, width: 0.7, height: 0.1 }, marked);
+  assert.equal(round(box.y), round(0.1 - MARGIN), `claims the marker line from ${top}`);
   assert.equal(round(box.x), round(0.04 - MARGIN));
+}
+
+// A one-line answer two blank lines up is not adjacent, marker or not.
+{
+  const marked = [{ ...page[0], left: 0.04, top: 0.06, bottom: 0.1 }, ...page.slice(1)];
+  const box = snapToInk({ x: 0.1, y: 0.15, width: 0.7, height: 0.1 }, marked);
+  assert.equal(round(box.y), round(0.15 - MARGIN));
 }
 
 // The box covers the next answer's opening line outright: the claim is cut

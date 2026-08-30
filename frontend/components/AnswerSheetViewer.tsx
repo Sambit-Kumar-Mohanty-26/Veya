@@ -132,12 +132,17 @@ export function AnswerSheetViewer({ files, regions, tag, emptyMessage, active }:
     };
   }, [files]);
 
-  // Scroll the first highlighted page into view whenever the selection changes.
+  // Scroll to the highlight itself, not to the page holding it — an answer near
+  // the foot of a page is off the bottom of the panel once the page top is
+  // aligned with it, which reads as the viewer jumping to the wrong place.
+  // Without a box there is nothing to centre on, so the page has to do.
   useLayoutEffect(() => {
     if (!active) return;
     const target = regions.find((region) => region.bbox)?.page ?? regions[0]?.page;
     if (target == null) return;
-    pageRefs.current.get(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const page = pageRefs.current.get(target);
+    const mark = page?.querySelector("[data-highlight]");
+    (mark ?? page)?.scrollIntoView({ behavior: "smooth", block: mark ? "center" : "start" });
   }, [regions, pages.length, active]);
 
   // The counter names the page holding the middle of the viewport, measured on
@@ -267,6 +272,7 @@ export function AnswerSheetViewer({ files, regions, tag, emptyMessage, active }:
                        same radius for free. */
                     <div
                       key={`${page.pageNumber}-${index}`}
+                      data-highlight=""
                       className="pointer-events-none absolute rounded-md border-2 border-highlight-border bg-highlight/[0.14] outline outline-2 outline-white transition-all duration-200"
                       style={box}
                     >

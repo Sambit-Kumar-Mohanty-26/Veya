@@ -116,8 +116,14 @@ export function snapToInk(bbox: NormalizedBBox, bands: InkBand[]): NormalizedBBo
   const before = bands[bands.indexOf(claim[0]) - 1];
   const after = bands[bands.indexOf(claim[claim.length - 1]) + 1];
   // Above: only the marker line this answer opens with — anything level with
-  // the claim is the tail of the answer before it.
-  if (before && overlap(before) > 0 && opensAnswer(before, claim[0])) claim.unshift(before);
+  // the claim is the tail of the answer before it. The box often starts below
+  // that line rather than clipping it, so the line above is taken on adjacency
+  // too. Line spacing scales with the writing, so a gap no wider than the line
+  // itself is the next line down; the blank line between two answers is wider.
+  const adjacent = before && claim[0].top - before.bottom <= before.bottom - before.top;
+  if (before && (overlap(before) > 0 || adjacent) && opensAnswer(before, claim[0])) {
+    claim.unshift(before);
+  }
   // Below: only a line that stayed at the margin, never the next answer's marker.
   if (after && overlap(after) > 0 && !opensAnswer(after, claim[claim.length - 1])) claim.push(after);
 
