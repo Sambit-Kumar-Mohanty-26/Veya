@@ -2,7 +2,8 @@
 
 import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { toViewportBox } from "@/lib/coordinates";
+import { findInkBands, snapToInk, toViewportBox } from "@/lib/coordinates";
+import type { InkBand } from "@/lib/coordinates";
 import { loadPdf, renderPage } from "@/lib/pdf";
 import type { Region } from "@/lib/types";
 
@@ -15,10 +16,13 @@ type Page = {
   height: number;
   canvas: HTMLCanvasElement | null;
   src?: string;
+  /** Where the ink is, measured once per page — highlights snap to these. */
+  bands: InkBand[];
 };
 
 type AnswerSheetViewerProps = {
-  file: File;
+  /** The answer sheet, in page order. Several files when a page was photographed each. */
+  files: File[];
   /** Regions to highlight, and the question number to tag them with. */
   regions: Region[];
   tag: string | null;
@@ -36,7 +40,7 @@ type AnswerSheetViewerProps = {
  * letterboxes the page inside its own viewport and every highlight lands in
  * the wrong place.
  */
-export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: AnswerSheetViewerProps) {
+export function AnswerSheetViewer({ files, regions, tag, emptyMessage, active }: AnswerSheetViewerProps) {
   const [pages, setPages] = useState<Page[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [zoomIndex, setZoomIndex] = useState(2);
@@ -75,27 +79,45 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
     setStatus("loading");
     setPages([]);
 
+    // Page numbers run across the whole document, not per file: `region.page`
+    // is what the model counted, and it was told to number the files as one
+    // continuous document. Pages appear as they finish, so a long PDF is
+    // readable before the last page is rasterised.
     async function render() {
+      const rendered: Page[] = [];
       try {
-        if (file.type !== "application/pdf") {
-          const src = URL.createObjectURL(file);
-          created.push(src);
-          const size = await imageSize(src);
-          if (cancelled) return;
-          setPages([{ pageNumber: 1, ...scaleToWidth(size, BASE_PAGE_WIDTH), canvas: null, src }]);
-          setStatus("ready");
-          return;
-        }
+        for (const file of files) {
+          if (file.type !== "application/pdf") {
+            const src = URL.createObjectURL(file);
+            created.push(src);
+            const size = await imageSize(src);
+            if (cancelled) return;
+            rendered.push({
+              pageNumber: rendered.length + 1,
+              ...scaleToWidth(size, BASE_PAGE_WIDTH),
+              canvas: null,
+              src,
+              // A photo has no canvas to measure, so its highlights stay as the
+              // model drew them.
+              bands: []
+            });
+            setPages([...rendered]);
+            continue;
+          }
 
-        const doc = await loadPdf(file);
-        const rendered: Page[] = [];
-        for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
-          const page = await renderPage(doc, pageNumber, BASE_PAGE_WIDTH);
-          if (cancelled) return;
-          rendered.push(page);
-          setPages([...rendered]);
+          const doc = await loadPdf(file);
+          for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+            const page = await renderPage(doc, pageNumber, BASE_PAGE_WIDTH);
+            if (cancelled) return;
+            rendered.push({
+              ...page,
+              pageNumber: rendered.length + 1,
+              bands: findInkBands(page.canvas)
+            });
+            setPages([...rendered]);
+          }
+          await doc.destroy();
         }
-        await doc.destroy();
         if (!cancelled) setStatus("ready");
       } catch {
         if (!cancelled) setStatus("error");
@@ -108,7 +130,7 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
       cancelled = true;
       created.forEach(URL.revokeObjectURL);
     };
-  }, [file]);
+  }, [files]);
 
   // Scroll the first highlighted page into view whenever the selection changes.
   useLayoutEffect(() => {
@@ -232,7 +254,11 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
                 </div>
 
                 {pageRegions.map((region, index) => {
-                  const box = toViewportBox(region.bbox!, page.width * zoom, page.height * zoom);
+                  const box = toViewportBox(
+                    snapToInk(region.bbox!, page.bands),
+                    page.width * zoom,
+                    page.height * zoom
+                  );
                   return (
                     /* The design strokes this twice: green, then white around
                        it, so the box reads against the ruling as well as the

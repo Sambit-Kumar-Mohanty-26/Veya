@@ -5,6 +5,8 @@
 import assert from "node:assert/strict";
 import type { AnswerEvidence, ExtractedQuestion } from "../types.js";
 import { buildCandidateMappings, buildFinalMappings } from "./mapper.js";
+import { mergeContinuations } from "./answerExtractor.js";
+import { toQuestionId } from "./questionExtractor.js";
 import { normalizeQuestionNumber, scoreCandidate } from "./scoring.js";
 
 function question(id: string, number: string, part: string | null, text: string, order: number): ExtractedQuestion {
@@ -12,7 +14,7 @@ function question(id: string, number: string, part: string | null, text: string,
     id, number, part, text,
     rawText: text,
     normalizedText: text.toLowerCase(),
-    page: 1, bbox: null, coordinateSpace: "normalized", marks: 5, order
+    page: 1, marks: 5, order
   };
 }
 
@@ -92,6 +94,54 @@ assert.equal(
   ];
   const { unmatchedAnswers } = buildFinalMappings(questions, answers, buildCandidateMappings(questions, answers));
   assert.deepEqual(unmatchedAnswers.map((a) => a.id), ["a_2"]);
+}
+
+// --- a repeated printed number must not collapse into one question ----------
+// Papers reuse numbers across sections. If both became `q_1`, the mapper would
+// key both on the same id and only one could ever receive an answer.
+{
+  const questions = [
+    question(toQuestionId("1", null, 0), "1", null, "Define photosynthesis", 1),
+    question(toQuestionId("1", null, 1), "1", null, "Name the parts of a nephron", 2)
+  ];
+  assert.notEqual(questions[0].id, questions[1].id, "repeated numbers get distinct ids");
+
+  const answers = [
+    answer("a_1", "1", "photosynthesis is how plants make food using sunlight", 1),
+    answer("a_2", "1", "the nephron has a glomerulus and a loop of henle", 2)
+  ];
+  const { mappings } = buildFinalMappings(questions, answers, buildCandidateMappings(questions, answers));
+
+  assert.equal(mappings.length, 2, "both questions survive");
+  assert.equal(new Set(mappings.map((m) => m.answerId)).size, 2, "each gets its own answer");
+}
+
+// --- an answer written across a page break comes back as one -----------------
+{
+  const half = (id: string, detected: string | null, text: string, page: number, order: number) => {
+    const block = answer(id, detected, text, order);
+    block.pages = [{ page, bbox: { x: 0.1, y: 0.1, width: 0.8, height: 0.2 }, coordinateSpace: "normalized" }];
+    block.evidence.isContinuation = order > 1;
+    return block;
+  };
+
+  const merged = mergeContinuations([
+    half("a_1", "6", "the nephron filters blood", 2, 1),
+    half("a_2", null, "and reabsorbs glucose", 3, 2),
+    half("a_3", "7", "in the dark the plant cannot photosynthesise", 3, 3)
+  ]);
+
+  assert.equal(merged.length, 2, "the two halves rejoin, the next answer stays separate");
+  assert.deepEqual(merged[0].pages.map((p) => p.page), [2, 3], "both halves keep their own region");
+  assert.match(merged[0].normalizedText, /filters blood and reabsorbs/);
+
+  // A continuation flag on an answer that names a different question is the
+  // model mislabelling a fresh answer, not a page break.
+  const different = mergeContinuations([
+    half("a_1", "6", "the nephron filters blood", 2, 1),
+    half("a_2", "7", "in the dark the plant cannot photosynthesise", 3, 2)
+  ]);
+  assert.equal(different.length, 2, "a different question number is never merged");
 }
 
 console.log("mapping self-check passed");

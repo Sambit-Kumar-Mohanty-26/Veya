@@ -7,8 +7,8 @@ import { buildCandidateMappings, buildFinalMappings } from "./mapper.js";
 import { extractQuestions } from "./questionExtractor.js";
 
 export async function processAssessment(
-  questionPaper: Express.Multer.File,
-  answerSheet: Express.Multer.File
+  questionPaper: Express.Multer.File[],
+  answerSheet: Express.Multer.File[]
 ) {
   const startedAt = Date.now();
 
@@ -34,9 +34,9 @@ export async function processAssessment(
     console.warn("[grading] skipped:", error instanceof Error ? error.message : String(error));
   }
 
-  const files: Record<"questionPaper" | "answerSheet", UploadedFileSummary> = {
-    questionPaper: summarizeFile(questionPaper),
-    answerSheet: summarizeFile(answerSheet)
+  const files: Record<"questionPaper" | "answerSheet", UploadedFileSummary[]> = {
+    questionPaper: questionPaper.map(summarizeFile),
+    answerSheet: answerSheet.map(summarizeFile)
   };
 
   return {

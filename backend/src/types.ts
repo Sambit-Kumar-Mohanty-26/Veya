@@ -31,8 +31,6 @@ export type ExtractedQuestion = {
   rawText: string;
   normalizedText: string;
   page: number;
-  bbox: NormalizedBBox | null;
-  coordinateSpace: "normalized";
   marks: number | null;
   order: number;
 };

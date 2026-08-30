@@ -49,6 +49,14 @@ export type AnswerEvidence = {
   ocrConfidence: number;
 };
 
+/** One question sent back for re-marking after the teacher reassigns its answer. */
+export type GradeRequestItem = {
+  id: string;
+  question: string;
+  marks: number | null;
+  answer: string | null;
+};
+
 export type ProcessResult = {
   requestId: string;
   durationMs: number;

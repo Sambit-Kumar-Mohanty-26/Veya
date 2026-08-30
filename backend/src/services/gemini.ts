@@ -75,8 +75,25 @@ function getClient(): GoogleGenerativeAI {
 
 type FilePart = { inlineData: { data: string; mimeType: string } };
 
-export function fileToInlinePart(file: Express.Multer.File): FilePart {
+function fileToInlinePart(file: Express.Multer.File): FilePart {
   return { inlineData: { data: file.buffer.toString("base64"), mimeType: file.mimetype } };
+}
+
+/**
+ * One document may arrive as several files - a teacher photographing a 3-page
+ * answer sheet gets three JPGs. They are sent as consecutive parts in upload
+ * order, with a note naming that order, because the model has no other way to
+ * know that "page 1" means the first file rather than the first page of each.
+ */
+export function filesToInlineParts(files: Express.Multer.File[]): Array<string | FilePart> {
+  if (files.length < 2) {
+    return files.map(fileToInlinePart);
+  }
+  return [
+    `The document is supplied as ${files.length} files, in order. Treat them as one ` +
+      "continuous document and number pages consecutively across all of them, starting at 1.",
+    ...files.map(fileToInlinePart)
+  ];
 }
 
 // Failure classification

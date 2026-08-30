@@ -1,9 +1,10 @@
 # Veya — AI Assessment Extraction & Answer Mapping
 
-Upload a printed question paper and a student's handwritten answer sheet. The
-app extracts every question, finds every answer block, works out which answer
-belongs to which question, and highlights the exact region on the sheet when a
-teacher clicks a question.
+Upload a printed question paper and a student's handwritten answer sheet —
+each as a single PDF, or as one file per photographed page. The app extracts
+every question, finds every answer block, works out which answer belongs to
+which question, and highlights the exact region on the sheet when a teacher
+clicks a question.
 
 - **Live app:** https://veya-dev.vercel.app/
 
@@ -46,7 +47,7 @@ Checks:
 
 ```bash
 cd backend  && npm test && npm run typecheck
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm test && npm run typecheck && npm run build
 ```
 
 ## Approach
@@ -77,8 +78,15 @@ calls are independent, so they run concurrently.
 
 Questions keep their printed order and split labelled sub-parts (`11(a)`,
 `11(b)`) into separate entries. Answer blocks record the question number the
-student actually wrote, a transcription, an OCR confidence, and one or more
-page regions.
+student actually wrote, a transcription, an OCR confidence, and a page region.
+
+Blocks are detected one page at a time, which is what a vision model is good at.
+Asked instead for a single block carrying a region per page, it returned one
+region and dropped the other half's coordinates in all three runs of the sample
+sheet. So an answer that runs across a page break comes back as two blocks
+carrying the same question number, and `mergeContinuations` puts them back
+together server-side — where a page number and a question number are just data
+to compare.
 
 ### Mapping score
 
@@ -114,6 +122,19 @@ the overlay against that canvas's measured size. A browser's built-in PDF plugin
 would letterbox the page inside its viewport, and the overlay would have no way
 to know where the page actually landed — every highlight would be slightly, or
 completely, wrong.
+
+Asked for a box that "tightly encloses the handwriting", the model lands within
+half a line of the truth — measured against the ink on the sample sheet it
+started 3px inside its own first line on one answer and reached 59% of the way
+into the *next* answer's opening line on another. Half a line either way, so how
+much of a line the box covers cannot say who the line belongs to.
+
+Pixels can. The canvas the page was just rasterised to is scanned once for rows
+of ink, grouped into lines, and the model's box is used only to *choose* the
+lines — the edges come from the ink. Where a line begins settles the boundary
+cases: a number marker hangs out into the left margin, so a line further left
+than the one above it opens a new answer, and a line that keeps the margin
+continues the current one. `frontend/lib/coordinates.test.ts` pins both.
 
 ### Surviving the free tier
 
@@ -167,21 +188,29 @@ says the answer could not be located. It never invents a box. A fabricated
 rectangle draws a confident green highlight over the wrong handwriting, which is
 worse for a teacher than no highlight at all.
 
+Snapping obeys the same rule: with no ink measured — a photo upload, a page too
+dark to threshold — the model's box is drawn as given rather than fitted to a
+guess.
+
 ## Assumptions and limitations
 
 - One student's answer sheet per run.
-- Files up to 10MB each; PDF, PNG, or JPG.
+- Files up to 10MB each; PDF, PNG, or JPG. Either document may be up to 20
+  files, taken in upload order — that order is the page order, for the model
+  and for the viewer alike.
 - Nothing is persisted. Teacher overrides live in the browser tab and are lost
-  on reload.
+  on reload, so reassigning an answer sends the question and the new answer
+  text back to `POST /api/grade` to be marked again.
 - The stage captions during processing are timed, not streamed — the backend
   runs the pipeline as a single request and cannot report its position.
 - Semantic similarity is word overlap, not embeddings. It is a corroborating
   signal at 25% weight, deliberately not the primary one.
 - Grading is the model's judgement, offered as a starting point for the teacher,
   not an authority.
-- Bounding-box quality is the weakest link. Gemini locates typed and
-  well-separated handwritten blocks well; dense or slanted handwriting produces
-  looser boxes.
+- Bounding boxes are snapped to the ink on the rendered page, so the model only
+  has to name the right lines, not measure them. Two answers written with no
+  number markers and no blank line between them are the case it cannot separate
+  — nothing on the page separates them either.
 - Each assessment costs three Gemini calls and the free tier allows 20 requests
   per day *per model*. The client falls back across eleven models, so the real
   budget is roughly 70 assessments a day rather than six (see below).
@@ -199,9 +228,10 @@ worse for a teacher than no highlight at all.
 | Answers written out of order | Best-pair-first assignment, not positional |
 | Unanswered questions | Reported `unanswered` with no region |
 | Answers with no question number | Falls back to semantic + sequence evidence |
-| Extra answers matching nothing | Listed under `unmatchedAnswers` |
-| Multi-page answers | One block with several page regions |
-| Low-confidence matches | Flagged, with alternatives the teacher can switch to |
+| Extra answers matching nothing | Listed under the question list, selectable and highlighted like any answer |
+| Multi-page answers | Detected per page, rejoined by the backend into one answer with a region on each |
+| A document uploaded as several files | Pages numbered across the whole document, not per file |
+| Low-confidence matches | Flagged, with alternatives the teacher can switch to; picking one re-marks that question |
 | Region not locatable | `bbox: null`; the viewer says so instead of guessing |
 | Per-minute rate limit / overload | Waits the delay Gemini asks for, then falls back |
 | Daily quota exhausted | Not retried — falls straight through to the next model |
@@ -251,7 +281,7 @@ backend/src/
 frontend/
   app/page.tsx               phase state machine
   components/                one component per screen in the design
-  lib/                       api client, pdf.js wrapper, coordinate maths
+  lib/                       api client, pdf.js wrapper, ink snapping, coordinate maths
 
 samples/                     evaluation fixtures — see samples/README.md
 ```

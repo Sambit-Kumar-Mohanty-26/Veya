@@ -6,9 +6,9 @@ import { MappingScreen } from "@/components/MappingScreen";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileTopBar, TopBar } from "@/components/TopBar";
 import { UploadScreen } from "@/components/UploadScreen";
-import { processAssessment } from "@/lib/api";
+import { gradeQuestions, processAssessment } from "@/lib/api";
 import { countPages } from "@/lib/pdf";
-import type { Mapping, ProcessResult } from "@/lib/types";
+import type { Mapping, ProcessResult, QuestionGrade } from "@/lib/types";
 
 type Phase = "upload" | "processing" | "results";
 
@@ -23,12 +23,9 @@ const STAGES = [
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("upload");
-  const [questionPaper, setQuestionPaper] = useState<File | null>(null);
-  const [answerSheet, setAnswerSheet] = useState<File | null>(null);
-  const [pageCounts, setPageCounts] = useState<Record<"question" | "answer", number | null>>({
-    question: null,
-    answer: null
-  });
+  // Either document may be several files - one photo per page - in page order.
+  const [questionPaper, setQuestionPaper] = useState<File[]>([]);
+  const [answerSheet, setAnswerSheet] = useState<File[]>([]);
 
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,21 +34,16 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  /** Marks for questions whose answer the teacher reassigned. `null` = not marked. */
+  const [regrades, setRegrades] = useState<Record<string, QuestionGrade | null>>({});
+  const [regrading, setRegrading] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const menuRef = useRef<HTMLDialogElement>(null);
 
-  // Page counts feed the "2MB · 2 Pages" chip. A failure here is cosmetic.
-  useEffect(() => {
-    if (!questionPaper) return;
-    void countPages(questionPaper).then((pages) => setPageCounts((prev) => ({ ...prev, question: pages })));
-  }, [questionPaper]);
-
-  useEffect(() => {
-    if (!answerSheet) return;
-    void countPages(answerSheet).then((pages) => setPageCounts((prev) => ({ ...prev, answer: pages })));
-  }, [answerSheet]);
+  const questionPaperPages = useTotalPages(questionPaper);
+  const answerSheetPages = useTotalPages(answerSheet);
 
   // Advance the stage caption on a timer. It is a progress *indication*, not a
   // report - the backend runs these as one call and cannot stream its position.
@@ -68,7 +60,7 @@ export default function Home() {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const handleStart = useCallback(async () => {
-    if (!questionPaper || !answerSheet) return;
+    if (!questionPaper.length || !answerSheet.length) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -79,6 +71,8 @@ export default function Home() {
     setError(null);
     setResult(null);
     setOverrides({});
+    setRegrades({});
+    setRegrading(new Set());
     setExpandedIds(new Set());
     setCollapsed(true);
 
@@ -99,34 +93,41 @@ export default function Home() {
   }, [questionPaper, answerSheet]);
 
   /**
-   * The teacher can swap in a different answer block. Regions come from the
-   * full `answers` list, not just the unmatched ones - most alternatives are
+   * What the screen shows: the model's mappings with the teacher's
+   * reassignments and their re-marks applied. Regions come from the full
+   * `answers` list, not just the unmatched ones - most alternatives are
    * currently mapped to some other question, and using stale regions would
    * highlight the wrong place on the sheet.
    */
-  const selected = useMemo((): Mapping | null => {
-    if (!result) return null;
-    const base = result.mappings.find((mapping) => mapping.questionId === selectedId);
-    if (!base) return null;
+  const mappings = useMemo((): Mapping[] => {
+    if (!result) return [];
 
-    const overrideId = overrides[base.questionId];
-    if (!overrideId) return base;
+    return result.mappings.map((base) => {
+      const answer = result.answers.find((candidate) => candidate.id === overrides[base.questionId]);
+      const merged: Mapping = answer
+        ? {
+            ...base,
+            status: "answered",
+            reviewStatus: "needs_review",
+            answerId: answer.id,
+            answerText: answer.normalizedText,
+            answerRegions: answer.pages,
+            mappingConfidence:
+              base.alternativeCandidates.find((alt) => alt.answerId === answer.id)?.mappingScore ??
+              base.mappingConfidence
+          }
+        : base;
 
-    const answer = result.answers.find((candidate) => candidate.id === overrideId);
-    if (!answer) return base;
+      // The old mark described the answer that was just replaced, so it goes
+      // even while the new one is still being marked.
+      return base.questionId in regrades ? { ...merged, grade: regrades[base.questionId] } : merged;
+    });
+  }, [result, overrides, regrades]);
 
-    return {
-      ...base,
-      status: "answered",
-      reviewStatus: "needs_review",
-      answerId: answer.id,
-      answerText: answer.normalizedText,
-      answerRegions: answer.pages,
-      mappingConfidence:
-        base.alternativeCandidates.find((alt) => alt.answerId === overrideId)?.mappingScore ??
-        base.mappingConfidence
-    };
-  }, [result, selectedId, overrides]);
+  const selected = useMemo(
+    () => mappings.find((mapping) => mapping.questionId === selectedId) ?? null,
+    [mappings, selectedId]
+  );
 
   const toggleExpand = useCallback((questionId: string) => {
     setExpandedIds((prev) => {
@@ -138,20 +139,56 @@ export default function Home() {
 
   const expandAll = useCallback(() => {
     setExpandedIds((prev) =>
-      prev.size === (result?.mappings.length ?? 0)
+      mappings.every((mapping) => prev.has(mapping.questionId))
         ? new Set()
-        : new Set(result?.mappings.map((mapping) => mapping.questionId))
+        : new Set(mappings.map((mapping) => mapping.questionId))
     );
-  }, [result]);
+  }, [mappings]);
 
-  const select = useCallback((questionId: string) => {
-    setSelectedId(questionId);
-    setExpandedIds((prev) => new Set(prev).add(questionId));
+  /** `id` is a question id, or the id of an answer that matched no question. */
+  const select = useCallback((id: string) => {
+    setSelectedId(id);
+    setExpandedIds((prev) => new Set(prev).add(id));
   }, []);
 
-  const override = useCallback((questionId: string, answerId: string) => {
-    setOverrides((prev) => ({ ...prev, [questionId]: answerId }));
-  }, []);
+  /**
+   * The teacher reassigns an answer, so the question is marked again: the mark
+   * on screen was written about the answer that was just replaced. It is
+   * cleared first and only restored by the new call, because a stale mark is
+   * worse than none - the teacher would have no way to tell it was stale.
+   */
+  const override = useCallback(
+    async (questionId: string, answerId: string) => {
+      setOverrides((prev) => ({ ...prev, [questionId]: answerId }));
+
+      const question = result?.mappings.find((mapping) => mapping.questionId === questionId);
+      const answer = result?.answers.find((candidate) => candidate.id === answerId);
+      if (!question || !answer) return;
+
+      setRegrades((prev) => ({ ...prev, [questionId]: null }));
+      setRegrading((prev) => new Set(prev).add(questionId));
+      try {
+        const grades = await gradeQuestions([
+          {
+            id: questionId,
+            question: question.questionText,
+            marks: question.marks,
+            answer: answer.normalizedText
+          }
+        ]);
+        setRegrades((prev) => ({ ...prev, [questionId]: grades[questionId] ?? null }));
+      } catch {
+        // Leave it unmarked. The row says so, which is the honest state.
+      } finally {
+        setRegrading((prev) => {
+          const next = new Set(prev);
+          next.delete(questionId);
+          return next;
+        });
+      }
+    },
+    [result]
+  );
 
   return (
     <div className="flex h-dvh gap-3 p-3">
@@ -177,17 +214,15 @@ export default function Home() {
           <UploadScreen
             questionPaper={questionPaper}
             answerSheet={answerSheet}
-            questionPaperPages={pageCounts.question}
-            answerSheetPages={pageCounts.answer}
+            questionPaperPages={questionPaperPages}
+            answerSheetPages={answerSheetPages}
             error={error}
-            onQuestionPaper={(file) => {
-              setQuestionPaper(file);
-              setPageCounts((prev) => ({ ...prev, question: null }));
+            onQuestionPaper={(files) => {
+              setQuestionPaper(files);
               setError(null);
             }}
-            onAnswerSheet={(file) => {
-              setAnswerSheet(file);
-              setPageCounts((prev) => ({ ...prev, answer: null }));
+            onAnswerSheet={(files) => {
+              setAnswerSheet(files);
               setError(null);
             }}
             onReject={setError}
@@ -197,14 +232,16 @@ export default function Home() {
 
         {phase === "processing" && <LoadingScreen stage={stage} />}
 
-        {phase === "results" && result && answerSheet && (
+        {phase === "results" && result && answerSheet.length > 0 && (
           <MappingScreen
             result={result}
+            mappings={mappings}
             answerSheet={answerSheet}
             selected={selected}
             selectedId={selectedId}
             expandedIds={expandedIds}
             overrides={overrides}
+            regrading={regrading}
             onSelect={select}
             onToggleExpand={toggleExpand}
             onExpandAll={expandAll}
@@ -214,4 +251,28 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+/**
+ * Total pages across a document's files, for the "2MB · 2 Pages" chip. Purely
+ * cosmetic: null while it is unknown, and null stays if any file cannot be read.
+ */
+function useTotalPages(files: File[]): number | null {
+  const [total, setTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTotal(null);
+    if (!files.length) return;
+
+    let cancelled = false;
+    void Promise.all(files.map(countPages)).then((counts) => {
+      if (cancelled) return;
+      setTotal(counts.includes(null) ? null : counts.reduce((sum, count) => sum! + count!, 0));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [files]);
+
+  return total;
 }

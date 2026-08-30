@@ -7,13 +7,13 @@ import { DropZone } from "./DropZone";
 import { ScrollPill } from "./ScrollPill";
 
 type UploadScreenProps = {
-  questionPaper: File | null;
-  answerSheet: File | null;
+  questionPaper: File[];
+  answerSheet: File[];
   questionPaperPages: number | null;
   answerSheetPages: number | null;
   error: string | null;
-  onQuestionPaper: (file: File | null) => void;
-  onAnswerSheet: (file: File | null) => void;
+  onQuestionPaper: (files: File[]) => void;
+  onAnswerSheet: (files: File[]) => void;
   onReject: (message: string) => void;
   onStart: () => void;
 };
@@ -29,7 +29,7 @@ export function UploadScreen({
   onReject,
   onStart
 }: UploadScreenProps) {
-  const ready = Boolean(questionPaper && answerSheet);
+  const ready = questionPaper.length > 0 && answerSheet.length > 0;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // `m-auto` on the inner block rather than `justify-center` on the scroller:
@@ -68,14 +68,14 @@ export function UploadScreen({
           <div className="grid w-full max-w-[764px] gap-4 rounded-panel bg-surface-sunken p-[clamp(8px,1.6vh,12px)] shadow-card sm:grid-cols-2">
             <DropZone
               label="Question Paper"
-              file={questionPaper}
+              files={questionPaper}
               pageCount={questionPaperPages}
               onChange={onQuestionPaper}
               onReject={onReject}
             />
             <DropZone
               label="Answer Sheet"
-              file={answerSheet}
+              files={answerSheet}
               pageCount={answerSheetPages}
               onChange={onAnswerSheet}
               onReject={onReject}

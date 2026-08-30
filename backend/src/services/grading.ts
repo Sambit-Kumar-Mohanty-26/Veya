@@ -41,17 +41,24 @@ const schema = z.object({
 
 const evaluations: Evaluation[] = ["correct", "partially_correct", "incorrect", "unanswered"];
 
-export async function gradeMappings(
-  mappings: FinalMapping[]
-): Promise<{ grades: Map<string, QuestionGrade>; summary: GradingSummary }> {
-  const payload = mappings.map((mapping) => ({
-    id: mapping.questionId,
-    question: mapping.questionText,
-    marks: mapping.marks,
-    answer: mapping.status === "answered" ? mapping.answerText : null
-  }));
+/** What the model needs to mark one question. Also the body of `POST /api/grade`. */
+export type GradeRequestItem = {
+  id: string;
+  question: string;
+  marks: number | null;
+  answer: string | null;
+};
 
-  const raw = await generateJson("Grading", schema, [PROMPT, JSON.stringify(payload)]);
+/**
+ * Marks a batch of question/answer pairs. Split out from `gradeMappings` so a
+ * teacher who reassigns an answer can have that one question re-marked without
+ * re-running the whole paper - the old mark described the old answer, and
+ * leaving it on screen is worse than not marking at all.
+ */
+export async function gradeItems(
+  items: GradeRequestItem[]
+): Promise<{ grades: Map<string, QuestionGrade>; summary: string }> {
+  const raw = await generateJson("Grading", schema, [PROMPT, JSON.stringify(items)]);
   const grades = new Map<string, QuestionGrade>();
 
   for (const item of raw.questions) {
@@ -67,6 +74,21 @@ export async function gradeMappings(
     });
   }
 
+  return { grades, summary: (raw.summary ?? "").trim() };
+}
+
+export async function gradeMappings(
+  mappings: FinalMapping[]
+): Promise<{ grades: Map<string, QuestionGrade>; summary: GradingSummary }> {
+  const { grades, summary } = await gradeItems(
+    mappings.map((mapping) => ({
+      id: mapping.questionId,
+      question: mapping.questionText,
+      marks: mapping.marks,
+      answer: mapping.status === "answered" ? mapping.answerText : null
+    }))
+  );
+
   const totalMarks = sum(mappings, (mapping) => grades.get(mapping.questionId)?.maxMarks ?? mapping.marks ?? 0);
   const awardedMarks = sum(mappings, (mapping) => grades.get(mapping.questionId)?.awardedMarks ?? 0);
 
@@ -76,7 +98,7 @@ export async function gradeMappings(
       totalMarks: round(totalMarks),
       awardedMarks: round(awardedMarks),
       percentage: totalMarks > 0 ? round((awardedMarks / totalMarks) * 100) : 0,
-      summary: (raw.summary ?? "").trim()
+      summary
     }
   };
 }

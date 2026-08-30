@@ -3,14 +3,19 @@
 import type { RefObject } from "react";
 import { ChevronDown } from "lucide-react";
 import { markPill, markToneClass } from "@/lib/marks";
-import type { Mapping } from "@/lib/types";
+import type { AnswerEvidence, Mapping } from "@/lib/types";
 
 type QuestionListProps = {
   mappings: Mapping[];
+  /** Answer blocks that matched no question. Selectable, so they can be located. */
+  unmatchedAnswers: AnswerEvidence[];
+  /** A question id, or the id of an unmatched answer. */
   selectedId: string | null;
   expandedIds: Set<string>;
   overrides: Record<string, string>;
-  onSelect: (questionId: string) => void;
+  /** Questions whose reassigned answer is still being re-marked. */
+  regrading: Set<string>;
+  onSelect: (id: string) => void;
   onToggleExpand: (questionId: string) => void;
   onExpandAll: () => void;
   onOverride: (questionId: string, answerId: string) => void;
@@ -20,16 +25,20 @@ type QuestionListProps = {
 
 export function QuestionList({
   mappings,
+  unmatchedAnswers,
   selectedId,
   expandedIds,
   overrides,
+  regrading,
   onSelect,
   onToggleExpand,
   onExpandAll,
   onOverride,
   scrollRef
 }: QuestionListProps) {
-  const allExpanded = expandedIds.size === mappings.length;
+  // Counted by membership, not by size: selecting an unmatched answer also puts
+  // its id in the set, and a plain length comparison would flip the button.
+  const allExpanded = mappings.every((mapping) => expandedIds.has(mapping.questionId));
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface-list">
@@ -53,12 +62,51 @@ export function QuestionList({
               isSelected={mapping.questionId === selectedId}
               isExpanded={expandedIds.has(mapping.questionId)}
               overriddenAnswerId={overrides[mapping.questionId]}
+              isRegrading={regrading.has(mapping.questionId)}
               onSelect={() => onSelect(mapping.questionId)}
               onToggleExpand={() => onToggleExpand(mapping.questionId)}
               onOverride={(answerId) => onOverride(mapping.questionId, answerId)}
             />
           ))}
         </ul>
+
+        {/* Writing the model found on the sheet but could not tie to any
+            question. It is the other half of the mapping result: without it a
+            mis-numbered answer simply disappears, and the teacher has no way
+            to see that the paper was answered at all. */}
+        {unmatchedAnswers.length > 0 && (
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="px-2 text-[11.5px] font-semibold uppercase tracking-wide text-ink-faint">
+              Unmatched answers ({unmatchedAnswers.length})
+            </p>
+            <ul className="mt-2 flex flex-col gap-2">
+              {unmatchedAnswers.map((answer) => (
+                <li key={answer.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(answer.id)}
+                    aria-pressed={answer.id === selectedId}
+                    className={`w-full rounded-card bg-surface px-4 py-2.5 text-left transition ${
+                      answer.id === selectedId
+                        ? "ring-2 ring-brand"
+                        : "ring-1 ring-transparent hover:ring-line-strong"
+                    }`}
+                  >
+                    <span className="line-clamp-2 text-[13px] leading-[1.5] text-ink-soft">
+                      {answer.normalizedText || "Untranscribed answer block"}
+                    </span>
+                    <span className="mt-1 block text-[11.5px] text-ink-faint">
+                      {answer.detectedQuestionNumber
+                        ? `Labelled "${answer.detectedQuestionNumber}"`
+                        : "No question number written"}
+                      {answer.pages[0] && ` • page ${answer.pages[0].page}`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -69,6 +117,7 @@ function QuestionRow({
   isSelected,
   isExpanded,
   overriddenAnswerId,
+  isRegrading,
   onSelect,
   onToggleExpand,
   onOverride
@@ -77,6 +126,7 @@ function QuestionRow({
   isSelected: boolean;
   isExpanded: boolean;
   overriddenAnswerId: string | undefined;
+  isRegrading: boolean;
   onSelect: () => void;
   onToggleExpand: () => void;
   onOverride: (answerId: string) => void;
@@ -120,7 +170,11 @@ function QuestionRow({
           </button>
 
           <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-2">
-            {pill ? (
+            {isRegrading ? (
+              <span className="animate-pulse rounded-lg bg-surface-panel px-2.5 py-1 text-[12px] font-semibold text-ink-faint">
+                Re-marking
+              </span>
+            ) : pill ? (
               <span
                 className={`rounded-lg px-2.5 py-1 text-[12px] font-semibold tabular-nums ${markToneClass[pill.tone]}`}
               >
@@ -153,10 +207,12 @@ function QuestionRow({
             <div className="rounded-xl bg-surface-panel p-3.5">
               <p className="text-[13px] font-semibold">AI Feedback</p>
               <p className="mt-1.5 text-[12.5px] leading-[1.55] text-ink-muted">
-                {mapping.grade?.feedback ||
-                  (unanswered
-                    ? "No answer was found for this question on the sheet."
-                    : "No feedback was generated for this answer.")}
+                {isRegrading
+                  ? "Marking the answer you just assigned…"
+                  : mapping.grade?.feedback ||
+                    (unanswered
+                      ? "No answer was found for this question on the sheet."
+                      : "This answer has not been marked.")}
               </p>
 
               {mapping.status === "answered" && mapping.answerText && (

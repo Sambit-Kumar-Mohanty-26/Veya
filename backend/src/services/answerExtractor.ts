@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AnswerEvidence, Region } from "../types.js";
-import { fileToInlinePart, geminiBoxToNormalized, generateJson } from "./gemini.js";
+import { filesToInlineParts, geminiBoxToNormalized, generateJson } from "./gemini.js";
+import { normalizeQuestionNumber } from "./scoring.js";
 
 const PROMPT = `You are an expert at analysing handwritten student answer sheets.
 
@@ -26,7 +27,10 @@ Return a JSON array. Each element has exactly these fields:
 
 RULES:
 - List blocks top-to-bottom, page by page.
-- A multi-page answer is ONE block with several entries in "pages".
+- One block never spans a page break. Where an answer runs onto the next page,
+  report the part on each page as its own block: same "detectedQuestionNumber",
+  and "isContinuation": true on the later one. Each block then has exactly one
+  "pages" entry, holding a bbox for the writing on that page alone.
 - Never merge answers to different questions into one block.
 - The bbox must tightly enclose the handwriting, including any diagram.
 - Set a bbox to null rather than guessing. A wrong box highlights the wrong answer.
@@ -51,9 +55,66 @@ const schema = z.array(
   })
 );
 
-export async function extractAnswerEvidence(file: Express.Multer.File): Promise<AnswerEvidence[]> {
-  const raw = await generateJson("Answer extraction", schema, [PROMPT, fileToInlinePart(file)]);
+export async function extractAnswerEvidence(files: Express.Multer.File[]): Promise<AnswerEvidence[]> {
+  const raw = await generateJson("Answer extraction", schema, [PROMPT, ...filesToInlineParts(files)]);
+  // Numbered after merging, so a rejoined answer is one id and counts once in
+  // the sequence signal.
+  return mergeContinuations(toEvidence(raw)).map((item, index) => ({
+    ...item,
+    id: `a_${index + 1}`,
+    order: index + 1
+  }));
+}
 
+/**
+ * Rejoin an answer that was written across a page break.
+ *
+ * Asked for one block with a region per page, the model returns one region and
+ * quietly drops the other half's coordinates — measured over three runs of the
+ * sample sheet it never once listed both pages. Detecting per page is what a
+ * vision model is good at, so it is asked for that instead and the halves are
+ * put back together here, where a page number and a question number are just
+ * data to compare.
+ */
+export function mergeContinuations(items: AnswerEvidence[]): AnswerEvidence[] {
+  const merged: AnswerEvidence[] = [];
+
+  for (const item of items) {
+    const previous = merged[merged.length - 1];
+    const continues =
+      previous &&
+      item.evidence.isContinuation &&
+      // A continuation carries either the same number or none at all; a
+      // different number means the student started a new answer.
+      (!item.detectedQuestionNumber ||
+        normalizeQuestionNumber(item.detectedQuestionNumber) ===
+          normalizeQuestionNumber(previous.detectedQuestionNumber));
+
+    if (!continues) {
+      merged.push(item);
+      continue;
+    }
+
+    merged[merged.length - 1] = {
+      ...previous,
+      rawText: `${previous.rawText}\n${item.rawText}`,
+      normalizedText: `${previous.normalizedText} ${item.normalizedText}`.trim(),
+      pages: [...previous.pages, ...item.pages],
+      // The whole answer is only as legible as its worst half.
+      ocrConfidence: Math.min(previous.ocrConfidence, item.ocrConfidence),
+      evidence: {
+        ...previous.evidence,
+        containsDiagram: previous.evidence.containsDiagram || item.evidence.containsDiagram,
+        containsTable: previous.evidence.containsTable || item.evidence.containsTable,
+        isCrossedOut: previous.evidence.isCrossedOut || item.evidence.isCrossedOut
+      }
+    };
+  }
+
+  return merged;
+}
+
+function toEvidence(raw: z.infer<typeof schema>): AnswerEvidence[] {
   return raw
     .filter((item) => (item.rawText ?? "").trim())
     .map((item, index): AnswerEvidence => {
