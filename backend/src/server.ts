@@ -82,7 +82,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
 
-  // An AI failure is the service's fault, not the teacher's — say so, and say why.
+  // An AI failure is the service's fault, not the teacher's - say so, and say why.
   if (err instanceof AiError) {
     res.status(502).json({ error: { code: "AI_FAILED", message: err.message } });
     return;

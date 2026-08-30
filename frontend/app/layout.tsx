@@ -3,7 +3,7 @@ import { Bricolage_Grotesque } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-// The typeface the design actually uses. Variable font, so no `weight` list —
+// The typeface the design actually uses. Variable font, so no `weight` list -
 // that would fetch static instances instead of the variable file. The `opsz`
 // axis is included so optical sizing adapts between 12px captions and the
 // 32px heading, which is what the design relies on.

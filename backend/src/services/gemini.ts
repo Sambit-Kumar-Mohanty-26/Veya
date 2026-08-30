@@ -79,9 +79,7 @@ export function fileToInlinePart(file: Express.Multer.File): FilePart {
   return { inlineData: { data: file.buffer.toString("base64"), mimeType: file.mimetype } };
 }
 
-// ---------------------------------------------------------------------------
 // Failure classification
-// ---------------------------------------------------------------------------
 
 type Failure = "daily_quota" | "rate_limit" | "overloaded" | "missing_model" | "fatal";
 
@@ -126,9 +124,7 @@ function suggestedDelayMs(error: unknown): number | null {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Model bench — stop paying for a model we already know is unavailable
-// ---------------------------------------------------------------------------
+// Model bench - stop paying for a model we already know is unavailable
 
 const benched = new Map<string, number>();
 
@@ -151,14 +147,12 @@ function modelsToTry(): string[] {
   return ready.length > 0 ? ready : MODEL_CHAIN;
 }
 
-// ---------------------------------------------------------------------------
 // The gateway
-// ---------------------------------------------------------------------------
 
 /**
  * Single gateway for every model call: model fallback, JSON response mode,
  * timeout, and schema validation. Callers get parsed, trusted data or an
- * AiError — never a silent [].
+ * AiError - never a silent [].
  */
 export async function generateJson<T>(
   label: string,
@@ -215,7 +209,7 @@ async function callModel(
 
   // Waiting on a busy model only makes sense when there is nothing left to fall
   // back to; otherwise another model answers sooner than this one recovers.
-  // A daily quota is never retried — it cannot clear today.
+  // A daily quota is never retried - it cannot clear today.
   for (let attempt = 0; ; attempt += 1) {
     try {
       const result = await generative.generateContent(parts);
@@ -305,9 +299,7 @@ function describe(error: unknown): string {
   return "the AI service did not respond.";
 }
 
-// ---------------------------------------------------------------------------
 // Response helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Gemini returns boxes as [ymin, xmin, ymax, xmax] on a 0-1000 scale.

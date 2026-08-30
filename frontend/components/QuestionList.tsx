@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { ChevronDown } from "lucide-react";
 import { markPill, markToneClass } from "@/lib/marks";
 import type { Mapping } from "@/lib/types";
@@ -13,6 +14,8 @@ type QuestionListProps = {
   onToggleExpand: (questionId: string) => void;
   onExpandAll: () => void;
   onOverride: (questionId: string, answerId: string) => void;
+  /** Owned by MappingScreen, which hangs the scroll pill in the panel seam. */
+  scrollRef: RefObject<HTMLDivElement | null>;
 };
 
 export function QuestionList({
@@ -23,7 +26,8 @@ export function QuestionList({
   onSelect,
   onToggleExpand,
   onExpandAll,
-  onOverride
+  onOverride,
+  scrollRef
 }: QuestionListProps) {
   const allExpanded = expandedIds.size === mappings.length;
 
@@ -40,7 +44,7 @@ export function QuestionList({
         </button>
       </div>
 
-      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 pt-1 sm:px-3">
+      <div ref={scrollRef} className="thin-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 pt-1 sm:px-3">
         <ul className="flex flex-col gap-2">
           {mappings.map((mapping) => (
             <QuestionRow
@@ -100,8 +104,8 @@ function QuestionRow({
           >
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <span
-                className={`grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full text-[12.5px] font-semibold text-white ${
-                  isSelected ? "bg-brand" : "bg-ink-badge"
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-white/25 text-[12.5px] font-semibold text-white ${
+                  isSelected ? "bg-brand shadow-badge-brand" : "bg-[#2B2B2B]/80 shadow-badge"
                 }`}
               >
                 {mapping.questionNumber}

@@ -58,7 +58,7 @@ export function DropZone({ label, file, pageCount, onChange, onReject }: DropZon
       }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
-      className={`relative flex min-h-[175px] items-center justify-center rounded-card p-4 transition ${
+      className={`relative flex min-h-[clamp(132px,23vh,175px)] items-center justify-center rounded-card p-4 transition ${
         isDragging ? "bg-brand-soft/50" : "bg-surface"
       }`}
     >

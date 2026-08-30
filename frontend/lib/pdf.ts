@@ -25,7 +25,7 @@ export async function loadPdf(file: File): Promise<PDFDocumentProxy> {
   return lib.getDocument({ data }).promise;
 }
 
-/** Page count only — used for the "2MB · 2 Pages" chip on the upload screen. */
+/** Page count only - used for the "2MB · 2 Pages" chip on the upload screen. */
 export async function countPages(file: File): Promise<number | null> {
   if (file.type !== "application/pdf") {
     return 1;

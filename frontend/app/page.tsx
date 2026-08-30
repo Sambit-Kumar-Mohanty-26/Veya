@@ -40,6 +40,7 @@ export default function Home() {
   const [collapsed, setCollapsed] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const menuRef = useRef<HTMLDialogElement>(null);
 
   // Page counts feed the "2MB · 2 Pages" chip. A failure here is cosmetic.
   useEffect(() => {
@@ -53,7 +54,7 @@ export default function Home() {
   }, [answerSheet]);
 
   // Advance the stage caption on a timer. It is a progress *indication*, not a
-  // report — the backend runs these as one call and cannot stream its position.
+  // report - the backend runs these as one call and cannot stream its position.
   useEffect(() => {
     if (phase !== "processing") return;
     let index = 0;
@@ -99,7 +100,7 @@ export default function Home() {
 
   /**
    * The teacher can swap in a different answer block. Regions come from the
-   * full `answers` list, not just the unmatched ones — most alternatives are
+   * full `answers` list, not just the unmatched ones - most alternatives are
    * currently mapped to some other question, and using stale regions would
    * highlight the wrong place on the sheet.
    */
@@ -122,7 +123,8 @@ export default function Home() {
       answerText: answer.normalizedText,
       answerRegions: answer.pages,
       mappingConfidence:
-        base.alternativeCandidates.find((alt) => alt.answerId === overrideId)?.mappingScore ?? base.mappingConfidence
+        base.alternativeCandidates.find((alt) => alt.answerId === overrideId)?.mappingScore ??
+        base.mappingConfidence
     };
   }, [result, selectedId, overrides]);
 
@@ -152,12 +154,24 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-dvh gap-3 pl-3 pt-3">
+    <div className="flex h-dvh gap-3 p-3">
       <Sidebar collapsed={collapsed || phase !== "upload"} onToggle={() => setCollapsed((value) => !value)} />
 
       <main className="flex min-w-0 flex-1 flex-col gap-3">
         <TopBar />
-        <MobileTopBar />
+        <MobileTopBar onMenu={() => menuRef.current?.showModal()} />
+
+        {/* The phone nav is the same Sidebar in a modal `<dialog>`, which brings
+            its own backdrop, Escape-to-close and focus trapping - all of which a
+            hand-rolled overlay div would have to re-implement. Clicks land on
+            the dialog itself only when they hit the backdrop. */}
+        <dialog
+          ref={menuRef}
+          onClick={(event) => event.target === event.currentTarget && menuRef.current?.close()}
+          className="m-0 h-dvh max-h-none bg-transparent p-3 backdrop:bg-black/40 md:hidden"
+        >
+          <Sidebar collapsed={false} onToggle={() => menuRef.current?.close()} className="!flex h-full" />
+        </dialog>
 
         {phase === "upload" && (
           <UploadScreen

@@ -42,27 +42,15 @@
 }
 
 @layer components {
+  /* The native bar is hidden outright — the design's scrollbar is the floating
+     pill drawn by ScrollPill.tsx, which rides over the content rather than
+     taking a gutter beside it. Scrolling itself is untouched. */
   .thin-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: theme("colors.line.strong") transparent;
+    scrollbar-width: none;
   }
 
   .thin-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .thin-scroll::-webkit-scrollbar-thumb {
-    background: theme("colors.line.strong");
-    border-radius: 999px;
-  }
-
-  .thin-scroll::-webkit-scrollbar-thumb:hover {
-    background: theme("colors.ink.faint");
-  }
-
-  .thin-scroll::-webkit-scrollbar-track {
-    background: transparent;
+    display: none;
   }
 }
 

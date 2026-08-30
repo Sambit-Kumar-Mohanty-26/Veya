@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Logo, SparkleDuo } from "./Brand";
 
 /**
- * The design's nav icons are a solid set that lucide has no equivalent for —
+ * The design's nav icons are a solid set that lucide has no equivalent for -
  * "My Classroom" is a teacher at a whiteboard, not a presentation easel. They
  * are exported as alpha masks and painted with `currentColor`, so the active
  * row still darkens the same way an inline SVG would.
@@ -43,18 +43,20 @@ const ACTIVE = "Exams";
 type SidebarProps = {
   collapsed: boolean;
   onToggle: () => void;
+  /** Set by the mobile drawer, which reuses this nav inside a `<dialog>`. */
+  className?: string;
 };
 
 /**
  * Desktop navigation. Collapses to an icon rail, which is the state the design
  * uses on the processing and mapping screens to give the documents more room.
  */
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, className = "" }: SidebarProps) {
   return (
     <aside
-      className={`hidden shrink-0 flex-col rounded-panel bg-surface py-4 shadow-rail transition-[width] duration-200 md:mb-3 md:flex ${
+      className={`hidden shrink-0 flex-col rounded-panel bg-surface py-4 shadow-rail transition-[width] duration-200 md:flex ${
         collapsed ? "w-[68px] items-center px-2.5" : "w-[248px] px-3.5"
-      }`}
+      } ${className}`}
     >
       <div className={`flex items-center px-1 ${collapsed ? "justify-center" : "justify-between"}`}>
         <span className="flex items-center gap-2.5">
@@ -75,7 +77,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <button
         type="button"
-        className={`mt-10 flex items-center justify-center gap-2.5 rounded-full bg-[linear-gradient(140deg,#454545_0%,#2C2C2C_65%,#343434_100%)] text-white ring-[3px] ring-[#E8734A] transition hover:brightness-110 ${
+        className={`mt-14 flex items-center justify-center gap-2.5 rounded-full bg-[linear-gradient(140deg,#454545_0%,#2C2C2C_65%,#343434_100%)] text-white ring-[3px] ring-[#E8734A] transition hover:brightness-110 ${
           collapsed ? "h-[38px] w-[38px] self-center" : "h-9 w-full px-4"
         }`}
         aria-label={collapsed ? "AI Teachers Toolkit" : undefined}
@@ -84,7 +86,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && <span className="text-[14.5px] font-medium">AI Teacher&rsquo;s Toolkit</span>}
       </button>
 
-      <nav className={`mt-10 flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`} aria-label="Main">
+      <nav className={`mt-14 flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`} aria-label="Main">
         {NAV.map(({ label, icon }) => {
           const isActive = label === ACTIVE;
           return (
@@ -128,7 +130,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <Image src="/school-crest.png" alt="" width={225} height={225} className="h-9 w-9 shrink-0" />
           {!collapsed && (
             <span className="min-w-0">
-              <span className="block truncate text-[13.5px] font-semibold leading-tight">Delhi Public School</span>
+              <span className="block truncate text-[13.5px] font-semibold leading-tight">
+                Delhi Public School
+              </span>
               <span className="block truncate text-[11.5px] text-ink-muted">Bokaro Steel City</span>
             </span>
           )}

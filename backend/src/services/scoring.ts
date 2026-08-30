@@ -49,7 +49,7 @@ export function scoreCandidate(question: ExtractedQuestion, answer: AnswerEviden
 
 /**
  * Exact number match is the strongest signal. A partial match ("11" vs "11a")
- * still beats nothing — the student may have written the parent number only.
+ * still beats nothing - the student may have written the parent number only.
  */
 function scoreNumberMatch(questionKey: string, answerKey: string): number {
   if (!questionKey || !answerKey) {
@@ -61,7 +61,7 @@ function scoreNumberMatch(questionKey: string, answerKey: string): number {
   return questionKey.startsWith(answerKey) || answerKey.startsWith(questionKey) ? 0.5 : 0;
 }
 
-/** Jaccard overlap of content words, scaled — answers rarely repeat the question verbatim. */
+/** Jaccard overlap of content words, scaled - answers rarely repeat the question verbatim. */
 function scoreSemantic(questionText: string, answerText: string): number {
   const questionTerms = toTerms(questionText);
   const answerTerms = toTerms(answerText);

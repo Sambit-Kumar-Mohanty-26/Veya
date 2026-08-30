@@ -9,7 +9,13 @@ import type { Region } from "@/lib/types";
 const BASE_PAGE_WIDTH = 620;
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-type Page = { pageNumber: number; width: number; height: number; canvas: HTMLCanvasElement | null; src?: string };
+type Page = {
+  pageNumber: number;
+  width: number;
+  height: number;
+  canvas: HTMLCanvasElement | null;
+  src?: string;
+};
 
 type AnswerSheetViewerProps = {
   file: File;
@@ -26,7 +32,7 @@ type AnswerSheetViewerProps = {
  * Renders the answer sheet page by page and draws highlight boxes on top.
  *
  * Pages are rendered to real canvases (never an <object> PDF plugin) because
- * the overlay has to know the exact pixel box each page occupies — a plugin
+ * the overlay has to know the exact pixel box each page occupies - a plugin
  * letterboxes the page inside its own viewport and every highlight lands in
  * the wrong place.
  */
@@ -112,26 +118,31 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
     pageRefs.current.get(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [regions, pages.length, active]);
 
-  // Track which page is under the top of the scroll area for the page counter.
+  // The counter names the page holding the middle of the viewport, measured on
+  // every scroll. An IntersectionObserver cannot answer this: its callback gets
+  // only the entries that crossed a threshold, so the page that merely *stayed*
+  // on screen is absent from the comparison meant to decide the answer — which
+  // is why the number stuck while scrolling, and why stepping forward from a
+  // stale number jumped to the page it was already on.
   useEffect(() => {
     const root = scrollRef.current;
-    if (!root || pages.length === 0) return;
+    if (!root) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const top = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) {
-          setVisiblePage(Number((top.target as HTMLElement).dataset.page));
+    const sync = () => {
+      const middle = root.getBoundingClientRect().top + root.clientHeight / 2;
+      let current = 1;
+      pageRefs.current.forEach((element, pageNumber) => {
+        if (pageNumber > current && element.getBoundingClientRect().top <= middle) {
+          current = pageNumber;
         }
-      },
-      { root, threshold: 0.1 }
-    );
+      });
+      setVisiblePage(current);
+    };
 
-    pageRefs.current.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [pages.length]);
+    root.addEventListener("scroll", sync, { passive: true });
+    sync();
+    return () => root.removeEventListener("scroll", sync);
+  }, [pages.length, zoom]);
 
   function jump(delta: number) {
     const next = Math.min(Math.max(visiblePage + delta, 1), pages.length);
@@ -145,7 +156,11 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
 
         <div className="flex items-center gap-3">
           <div className="hidden h-9 items-center gap-1 rounded-lg bg-surface-control px-1.5 sm:flex">
-            <ZoomButton label="Zoom out" disabled={zoomIndex === 0} onClick={() => setZoomIndex((i) => i - 1)}>
+            <ZoomButton
+              label="Zoom out"
+              disabled={zoomIndex === 0}
+              onClick={() => setZoomIndex((i) => i - 1)}
+            >
               <Minus className="h-3.5 w-3.5" aria-hidden="true" />
             </ZoomButton>
             <span className="min-w-[42px] text-center text-[12px] font-medium tabular-nums">
@@ -167,17 +182,15 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
             <span className="whitespace-nowrap px-1 text-[12px] font-medium tabular-nums">
               Page {visiblePage} of {pages.length || "…"}
             </span>
-            <ZoomButton
-              label="Next page"
-              disabled={visiblePage >= pages.length}
-              onClick={() => jump(1)}
-            >
+            <ZoomButton label="Next page" disabled={visiblePage >= pages.length} onClick={() => jump(1)}>
               <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
             </ZoomButton>
           </div>
         </div>
       </div>
 
+      {/* No scroll pill here: the design gives the sheet the page steppers in
+          the header instead, and wheel/trackpad scrolling is untouched. */}
       <div ref={scrollRef} className="thin-scroll min-h-0 flex-1 overflow-auto bg-line">
         {status === "error" && (
           <p className="py-16 text-center text-[13.5px] text-ink-muted">
@@ -221,9 +234,14 @@ export function AnswerSheetViewer({ file, regions, tag, emptyMessage, active }: 
                 {pageRegions.map((region, index) => {
                   const box = toViewportBox(region.bbox!, page.width * zoom, page.height * zoom);
                   return (
+                    /* The design strokes this twice: green, then white around
+                       it, so the box reads against the ruling as well as the
+                       paper. The white is an outline rather than a second
+                       element - it sits outside the border box and follows the
+                       same radius for free. */
                     <div
                       key={`${page.pageNumber}-${index}`}
-                      className="pointer-events-none absolute rounded-md border-2 border-highlight-border bg-highlight/[0.14] transition-all duration-200"
+                      className="pointer-events-none absolute rounded-md border-2 border-highlight-border bg-highlight/[0.14] outline outline-2 outline-white transition-all duration-200"
                       style={box}
                     >
                       {tag && index === 0 && (

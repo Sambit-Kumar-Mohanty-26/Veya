@@ -13,7 +13,7 @@ export type NormalizedBBox = {
 
 /**
  * A region on a document page. `bbox` is null when the model could not locate
- * the content — the viewer then shows the answer text without a highlight
+ * the content - the viewer then shows the answer text without a highlight
  * rather than pointing at the wrong place.
  */
 export type Region = {

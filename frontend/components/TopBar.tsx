@@ -10,7 +10,7 @@ const USER = "Madhur Rastogi";
 /** Desktop header: breadcrumb on the left, account tools on the right. */
 export function TopBar() {
   return (
-    <header className="hidden h-[58px] shrink-0 items-center justify-between rounded-panel bg-surface px-4 md:mr-3 md:flex">
+    <header className="hidden h-[58px] shrink-0 items-center justify-between rounded-panel bg-surface px-4 md:flex">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -35,7 +35,7 @@ export function TopBar() {
             <span className="absolute -right-0.5 -top-0.5 h-[9px] w-[9px] rounded-full bg-brand" />
           </span>
         </IconButton>
-        {/* The design gives this one no disc — it sits straight on the bar. */}
+        {/* The design gives this one no disc - it sits straight on the bar. */}
         <IconButton label="AI assistant" plain>
           <Sparkle size={22} className="text-ink" />
         </IconButton>
@@ -53,9 +53,9 @@ export function TopBar() {
 }
 
 /** Mobile header: wordmark plus the same account tools, condensed. */
-export function MobileTopBar() {
+export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
   return (
-    <header className="mr-3 flex h-[56px] shrink-0 items-center justify-between rounded-panel bg-surface px-3.5 md:hidden">
+    <header className="flex h-[56px] shrink-0 items-center justify-between rounded-panel bg-surface px-3.5 md:hidden">
       <span className="flex items-center gap-2.5">
         <Logo size={28} />
         <span className="text-[17px] font-bold tracking-tight">VedaAI</span>
@@ -66,7 +66,12 @@ export function MobileTopBar() {
           <span className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-brand" />
         </span>
         <Image src="/avatar.png" alt="" width={128} height={128} className="h-9 w-9 rounded-full" />
-        <button type="button" className="grid h-9 w-9 place-items-center rounded-lg" aria-label="Open menu">
+        <button
+          type="button"
+          onClick={onMenu}
+          className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-surface-sunken"
+          aria-label="Open menu"
+        >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>

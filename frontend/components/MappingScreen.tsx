@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Mapping, ProcessResult } from "@/lib/types";
 import { AnswerSheetViewer } from "./AnswerSheetViewer";
 import { QuestionList } from "./QuestionList";
+import { ScrollPill } from "./ScrollPill";
 
 type MappingScreenProps = {
   result: ProcessResult;
@@ -33,6 +34,7 @@ export function MappingScreen({
   // On phones the two panels do not fit side by side, so they become tabs.
   const [tab, setTab] = useState<"questions" | "answer">("questions");
   const isNarrow = useIsNarrow();
+  const listRef = useRef<HTMLDivElement>(null);
 
   const regions = selected?.answerRegions ?? [];
   const hasLocatedRegion = regions.some((region) => region.bbox);
@@ -67,8 +69,13 @@ export function MappingScreen({
       </div>
 
       <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(360px,0.85fr)_minmax(0,1fr)]">
-        <div className={`min-h-0 min-w-0 ${tab === "questions" ? "flex" : "hidden"} md:flex`}>
+        {/* The pill hangs outside the list panel to fill the 12px seam between
+            the two columns exactly. Stacked on mobile there is no seam, so it
+            tucks back inside. */}
+        <div className={`relative min-h-0 min-w-0 ${tab === "questions" ? "flex" : "hidden"} md:flex`}>
+          <ScrollPill target={listRef} className="right-1.5 md:-right-3" />
           <QuestionList
+            scrollRef={listRef}
             mappings={result.mappings}
             selectedId={selectedId}
             expandedIds={expandedIds}
@@ -119,7 +126,9 @@ function Summary({ result }: { result: ProcessResult }) {
         <Stat value={summary.totalQuestions} label="questions" />
         <Stat value={summary.answered} label="answered" />
         <Stat value={summary.unanswered} label="unanswered" />
-        {summary.needsReview > 0 && <Stat value={summary.needsReview} label="need review" tone="text-mark-part" />}
+        {summary.needsReview > 0 && (
+          <Stat value={summary.needsReview} label="need review" tone="text-mark-part" />
+        )}
         {summary.unmatchedAnswers > 0 && <Stat value={summary.unmatchedAnswers} label="unmatched" />}
       </span>
 
