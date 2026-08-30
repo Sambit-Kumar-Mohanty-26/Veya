@@ -10,7 +10,7 @@ const USER = "Madhur Rastogi";
 /** Desktop header: breadcrumb on the left, account tools on the right. */
 export function TopBar() {
   return (
-    <header className="hidden h-[58px] shrink-0 items-center justify-between rounded-panel bg-surface px-4 md:flex">
+    <header className="hidden h-[58px] shrink-0 items-center justify-between rounded-panel bg-surface px-4 md:mr-3 md:flex">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -55,7 +55,7 @@ export function TopBar() {
 /** Mobile header: wordmark plus the same account tools, condensed. */
 export function MobileTopBar() {
   return (
-    <header className="flex h-[56px] shrink-0 items-center justify-between rounded-panel bg-surface px-3.5 md:hidden">
+    <header className="mr-3 flex h-[56px] shrink-0 items-center justify-between rounded-panel bg-surface px-3.5 md:hidden">
       <span className="flex items-center gap-2.5">
         <Logo size={28} />
         <span className="text-[17px] font-bold tracking-tight">VedaAI</span>

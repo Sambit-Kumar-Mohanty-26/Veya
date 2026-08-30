@@ -5,8 +5,7 @@ app extracts every question, finds every answer block, works out which answer
 belongs to which question, and highlights the exact region on the sheet when a
 teacher clicks a question.
 
-- **Live app:** _add your Vercel URL_
-- **API:** _add your Render URL_
+- **Live app:** https://veya-dev.vercel.app/
 
 ## Tech stack
 

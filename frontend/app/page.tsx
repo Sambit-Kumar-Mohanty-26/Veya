@@ -152,7 +152,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-dvh gap-3 p-3">
+    <div className="flex h-dvh gap-3 pl-3 pt-3">
       <Sidebar collapsed={collapsed || phase !== "upload"} onToggle={() => setCollapsed((value) => !value)} />
 
       <main className="flex min-w-0 flex-1 flex-col gap-3">

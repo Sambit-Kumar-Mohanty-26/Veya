@@ -52,6 +52,10 @@ const config: Config = {
       boxShadow: {
         card: "0 1px 2px rgba(16, 16, 16, 0.04), 0 1px 3px rgba(16, 16, 16, 0.03)",
         raised: "0 4px 16px rgba(16, 16, 16, 0.07)",
+        /* The sidebar is lit from the left, so it throws sideways onto the
+           page as well as down — a purely vertical shadow leaves its right
+           edge reading as a hard cut. */
+        rail: "6px 0 24px rgba(16, 16, 16, 0.08), 0 4px 16px rgba(16, 16, 16, 0.05)",
         pop: "0 8px 30px rgba(16, 16, 16, 0.12)"
       },
       fontFamily: {

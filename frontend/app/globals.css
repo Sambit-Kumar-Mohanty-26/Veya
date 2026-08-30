@@ -12,9 +12,16 @@
     height: 100%;
   }
 
+  /* The wash belongs to the page, not the content panel: the design runs one
+     continuous vertical gradient behind everything, so the strips of page
+     showing between the sidebar, header and panel are the same grey as the
+     panel at that height rather than a flat fill beside a gradient. */
   body {
     margin: 0;
-    background: theme("colors.surface.page");
+    background:
+      radial-gradient(120% 62% at 50% 116%, rgba(134, 134, 134, 0.2), transparent 68%),
+      linear-gradient(180deg, #F4F4F4 0%, #EFEFEF 38%, #E4E4E4 74%, #D6D6D6 100%);
+    background-attachment: fixed;
     color: theme("colors.ink.DEFAULT");
     font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -35,15 +42,6 @@
 }
 
 @layer components {
-  /* The content panel is not flat: the design runs a vertical gradient from
-     near-white down to a mid grey, with a slight darkening toward the centre
-     bottom. Sampled straight off the Figma frame. */
-  .panel-gradient {
-    background:
-      radial-gradient(120% 62% at 50% 116%, rgba(140, 134, 134, 0.28), transparent 68%),
-      linear-gradient(180deg, #F4F4F4 0%, #F1F0F0 42%, #E1DEDE 78%, #CFCBCB 100%);
-  }
-
   .thin-scroll {
     scrollbar-width: thin;
     scrollbar-color: theme("colors.line.strong") transparent;

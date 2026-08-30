@@ -52,7 +52,7 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
-      className={`hidden shrink-0 flex-col rounded-panel bg-surface py-4 transition-[width] duration-200 md:flex ${
+      className={`hidden shrink-0 flex-col rounded-panel bg-surface py-4 shadow-rail transition-[width] duration-200 md:mb-3 md:flex ${
         collapsed ? "w-[68px] items-center px-2.5" : "w-[248px] px-3.5"
       }`}
     >
@@ -76,7 +76,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <button
         type="button"
         className={`mt-10 flex items-center justify-center gap-2.5 rounded-full bg-[linear-gradient(140deg,#454545_0%,#2C2C2C_65%,#343434_100%)] text-white ring-[3px] ring-[#E8734A] transition hover:brightness-110 ${
-          collapsed ? "h-[38px] w-[38px] self-center" : "h-11 w-full px-4"
+          collapsed ? "h-[38px] w-[38px] self-center" : "h-9 w-full px-4"
         }`}
         aria-label={collapsed ? "AI Teachers Toolkit" : undefined}
       >

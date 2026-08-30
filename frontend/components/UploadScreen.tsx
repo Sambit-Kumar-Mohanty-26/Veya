@@ -33,7 +33,7 @@ export function UploadScreen({
   // on a short viewport, centring with justify-content clips the overflow at
   // BOTH ends and the top of the heading becomes unreachable.
   return (
-    <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center overflow-y-auto rounded-panel panel-gradient px-4 py-8 sm:px-8">
+    <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center overflow-y-auto rounded-tl-panel px-4 py-8 sm:px-8">
       <div className="m-auto flex w-full max-w-[764px] flex-col items-center">
         {/* The design highlights the second half only on desktop; the mobile
             frame is plain black across two lines, with no tinted box. */}
@@ -81,17 +81,20 @@ export function UploadScreen({
           type="button"
           onClick={onStart}
           disabled={!ready}
-          className={`mt-7 flex h-11 items-center gap-2 rounded-full px-6 text-[14px] font-medium transition ${
+          // The pill carries a 2px rim in both states — always one step lighter
+          // than its own fill, never a fixed colour, so it stays legible when
+          // the fill flips from near-black to grey.
+          className={`mt-7 flex h-11 items-center gap-2 rounded-full px-6 text-[14px] font-medium text-white ring-2 transition ${
             ready
-              ? "bg-ink text-white hover:bg-ink-soft"
-              : "cursor-not-allowed bg-line-strong/70 text-ink-faint"
+              ? "bg-ink ring-ink-badge hover:bg-ink-soft"
+              : "cursor-not-allowed bg-[#CAC8C8] ring-line-strong"
           }`}
         >
           Start Mapping
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
 
-        <p className="mt-3 text-center text-[12px] text-ink-faint">
+        <p className="mt-3 text-center text-[12px] text-ink-muted">
           Once both files are uploaded, you&apos;ll be able to map answers with questions
         </p>
       </div>

@@ -13,6 +13,22 @@ type DropZoneProps = {
   onReject: (message: string) => void;
 };
 
+/**
+ * The design's file chip uses a folded-corner page glyph with the type lettered
+ * across it, not a plain rounded tile — the fold is what reads as "document".
+ */
+function FileMark({ kind }: { kind: string }) {
+  return (
+    <svg viewBox="0 0 28 34" className="h-[34px] w-7 shrink-0 text-mark-none" aria-hidden="true">
+      <path d="M4 0h14l10 10v20a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4Z" fill="currentColor" />
+      <path d="M18 0l10 10h-7a3 3 0 0 1-3-3V0Z" fill="#fff" fillOpacity=".38" />
+      <text x="14" y="26" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="700" letterSpacing="-.3">
+        {kind}
+      </text>
+    </svg>
+  );
+}
+
 export function DropZone({ label, file, pageCount, onChange, onReject }: DropZoneProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,28 +89,23 @@ export function DropZone({ label, file, pageCount, onChange, onReject }: DropZon
 
       {file ? (
         <div className="relative w-full max-w-[300px]">
-          <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5 shadow-raised">
-            <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-mark-none-bg text-[10px] font-bold text-mark-none"
-              aria-hidden="true"
-            >
-              {file.type === "application/pdf" ? "PDF" : "IMG"}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13.5px] font-semibold">{file.name}</span>
-              <span className="block text-[11.5px] text-ink-muted">
+          <div className="flex items-center gap-2.5 rounded-2xl bg-surface-list px-3.5 py-2.5">
+            <FileMark kind={file.type === "application/pdf" ? "PDF" : "IMG"} />
+            <span className="min-w-0 flex-1 text-center">
+              <span className="block truncate text-[13.5px] font-bold">{file.name}</span>
+              <span className="block text-[12px] text-ink-muted">
                 {formatBytes(file.size)}
-                {pageCount != null && ` · ${pageCount} ${pageCount === 1 ? "Page" : "Pages"}`}
+                {pageCount != null && ` • ${pageCount} ${pageCount === 1 ? "Page" : "Pages"}`}
               </span>
             </span>
           </div>
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="absolute -right-2.5 -top-2.5 grid h-6 w-6 place-items-center rounded-full bg-ink text-white shadow-raised transition hover:bg-ink-soft"
+            className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-[#6E6E6E] text-white ring-2 ring-white transition hover:bg-ink-soft"
             aria-label={`Remove ${label}`}
           >
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
+            <X className="h-3 w-3" strokeWidth={2.75} aria-hidden="true" />
           </button>
         </div>
       ) : (
