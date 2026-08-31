@@ -214,9 +214,11 @@ guess.
 - Each assessment costs three Gemini calls and the free tier allows 20 requests
   per day *per model*. The client falls back across eleven models, so the real
   budget is roughly 70 assessments a day rather than six (see below).
-- Later entries in the chain are lite models. They keep the app working but
-  locate handwriting less precisely, so bounding boxes loosen once the full
-  flash models are spent.
+- Later entries in the chain are lite models. They transcribe and map just as
+  well, but locate handwriting poorly and often decline to box it at all. So
+  once the flash models are spent for the day, answers come back mapped and
+  graded with `bbox: null`, and the viewer says the position could not be
+  located rather than drawing a guessed box.
 - Grading is a text-only call: it marks the transcription, not the page. A
   diagram question is therefore graded from the OCR description of the diagram,
   which is the least reliable mark on the sheet.
@@ -233,6 +235,8 @@ guess.
 | A document uploaded as several files | Pages numbered across the whole document, not per file |
 | Low-confidence matches | Flagged, with alternatives the teacher can switch to; picking one re-marks that question |
 | Region not locatable | `bbox: null`; the viewer says so instead of guessing |
+| A page that will not render | The viewer says so; the answer was still processed |
+| Phone-width viewport | List and sheet become tabs, the nav collapses to a drawer |
 | Per-minute rate limit / overload | Waits the delay Gemini asks for, then falls back |
 | Daily quota exhausted | Not retried — falls straight through to the next model |
 | Every model exhausted | One message naming the quota and when it resets |
